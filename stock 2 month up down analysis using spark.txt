@@ -1,0 +1,20 @@
+val bankNiftyData = sc.textFile("C:/Users/Dhaval/Downloads/hist_banknifty_01-jan-2022_31-dec-2022.csv")
+
+case class dailyData(Date:String,Open:Double,High:Double,Low:Double,Close:Double,SharesTraded:Int,Turnover:Double)
+
+case class AnalysedData
+
+val header = bankNiftyData.first()
+
+val bankNiftyDF = bankNiftyData.filter(data => data != header).map(data => data.split(",")).map(value => dailyData(value(0).toString, value(1).toDouble,value(2).toDouble,value(3).toDouble,value(4).toDouble,value(5).toInt,value(6).toDouble)).toDF()
+
+bankNiftyDF.createOrReplaceTempView("historicData")
+
+//spark.sql("select *, (select max(High) from historicData where Date BETWEEN Date AND DATEADD(week, 8, Date)) as max_of_period from historicData").show()
+
+//spark.sql("select max(High) from historicData where Date BETWEEN Date AND DATEADD(week, 8, Date)").show()
+
+val analysedData = spark.sql("with temp_table as (select row_number() OVER (ORDER BY 1) rn, Date, Open, Close, High, Low FROM historicData)SELECT Date, Open, MAX(High) OVER (ORDER BY rn ROWS BETWEEN CURRENT ROW AND 40 FOLLOWING) AS Upside, MIN(Low) OVER (ORDER BY rn ROWS BETWEEN CURRENT ROW AND 40 FOLLOWING) AS Downside FROM temp_table ORDER BY rn")
+
+
+analysedData.write.option("header",true).csv("file:///Desktop/analysedData/new")
